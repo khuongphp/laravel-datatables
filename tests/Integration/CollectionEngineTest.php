@@ -2,13 +2,13 @@
 
 namespace Yajra\DataTables\Tests\Integration;
 
-use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Http\JsonResponse;
-use Yajra\DataTables\CollectionDataTable;
 use Yajra\DataTables\DataTables;
-use Yajra\DataTables\Facades\DataTables as DatatablesFacade;
-use Yajra\DataTables\Tests\Models\User;
+use Illuminate\Http\JsonResponse;
 use Yajra\DataTables\Tests\TestCase;
+use Yajra\DataTables\Tests\Models\User;
+use Yajra\DataTables\CollectionDataTable;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Yajra\DataTables\Facades\DataTables as DatatablesFacade;
 
 class CollectionEngineTest extends TestCase
 {
@@ -30,10 +30,10 @@ class CollectionEngineTest extends TestCase
     {
         $crawler = $this->call('GET', '/collection/users', [
             'columns' => [
-                ['data' => 'name', 'name' => 'name', 'searchable' => "true", 'orderable' => "true"],
-                ['data' => 'email', 'name' => 'email', 'searchable' => "true", 'orderable' => "true"],
+                ['data' => 'name', 'name' => 'name', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'email', 'name' => 'email', 'searchable' => 'true', 'orderable' => 'true'],
             ],
-            'search'  => ['value' => 'Record 19'],
+            'search' => ['value' => 'Record 19'],
         ]);
 
         $crawler->assertJson([
@@ -94,12 +94,12 @@ class CollectionEngineTest extends TestCase
         config()->set('app.debug', false);
         request()->merge([
             'columns' => [
-                ['data' => 'name', 'name' => 'name', 'searchable' => "true", 'orderable' => "true"],
+                ['data' => 'name', 'name' => 'name', 'searchable' => 'true', 'orderable' => 'true'],
             ],
-            'order'   => [["column" => 0, "dir" => "asc"]],
-            'start'   => 0,
-            'length'  => 10,
-            'draw'    => 1,
+            'order'  => [['column' => 0, 'dir' => 'asc']],
+            'start'  => 0,
+            'length' => 10,
+            'draw'   => 1,
         ]);
 
         $collection = collect([
@@ -145,16 +145,16 @@ class CollectionEngineTest extends TestCase
         config()->set('app.debug', false);
         request()->merge([
             'columns' => [
-                ['data' => 'name', 'name' => 'name', 'searchable' => "true", 'orderable' => "true"],
-                ['data' => 'foo',  'name' => 'foo', 'searchable' => "true", 'orderable' => "true"],
+                ['data' => 'name', 'name' => 'name', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'foo',  'name' => 'foo', 'searchable' => 'true', 'orderable' => 'true'],
             ],
-            'order'   => [["column" => 0, "dir" => "asc"]],
-            'start'   => 0,
-            'search'  => [
-                'value' => 'bar aaa'
+            'order'  => [['column' => 0, 'dir' => 'asc']],
+            'start'  => 0,
+            'search' => [
+                'value' => 'bar aaa',
             ],
-            'length'  => 10,
-            'draw'    => 1,
+            'length' => 10,
+            'draw'   => 1,
         ]);
 
         $collection = collect([

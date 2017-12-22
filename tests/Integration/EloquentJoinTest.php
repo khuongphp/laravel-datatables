@@ -7,21 +7,23 @@ use Yajra\DataTables\Tests\TestCase;
 use Yajra\DataTables\Tests\Models\Post;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
-class BelongsToRelationTest extends TestCase
+class EloquentJoinTest extends TestCase
 {
     use DatabaseTransactions;
 
     /** @test */
     public function it_returns_all_records_with_the_relation_when_called_without_parameters()
     {
-        $response = $this->call('GET', '/relations/belongsTo');
+        $response = $this->getJsonResponse();
         $response->assertJson([
             'draw'            => 0,
             'recordsTotal'    => 60,
             'recordsFiltered' => 60,
         ]);
 
-        $this->assertArrayHasKey('user', $response->json()['data'][0]);
+        $this->assertArrayHasKey('name', $response->json()['data'][0]);
+        $this->assertArrayHasKey('email', $response->json()['data'][0]);
+        $this->assertArrayHasKey('title', $response->json()['data'][0]);
         $this->assertEquals(60, count($response->json()['data']));
     }
 
@@ -45,13 +47,13 @@ class BelongsToRelationTest extends TestCase
     {
         $data = [
             'columns' => [
-                ['data' => 'user.name', 'name' => 'user.name', 'searchable' => 'true', 'orderable' => 'true'],
-                ['data' => 'user.email', 'name' => 'user.email', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'name', 'name' => 'users.name', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'email', 'name' => 'users.email', 'searchable' => 'true', 'orderable' => 'true'],
                 ['data' => 'title', 'name' => 'posts.title', 'searchable' => 'true', 'orderable' => 'true'],
             ],
         ];
 
-        return $this->call('GET', '/relations/belongsTo', array_merge($data, $params));
+        return $this->call('GET', '/eloquent/join', array_merge($data, $params));
     }
 
     /** @test */
@@ -75,7 +77,7 @@ class BelongsToRelationTest extends TestCase
             'recordsFiltered' => 60,
         ]);
 
-        $this->assertEquals('Email-9@example.com', $response->json()['data'][0]['user']['email']);
+        $this->assertEquals('Email-9@example.com', $response->json()['data'][0]['email']);
         $this->assertEquals(10, count($response->json()['data']));
     }
 
@@ -83,8 +85,12 @@ class BelongsToRelationTest extends TestCase
     {
         parent::setUp();
 
-        $this->app['router']->get('/relations/belongsTo', function (DataTables $datatables) {
-            return $datatables->eloquent(Post::with('user')->select('posts.*'))->make('true');
+        $this->app['router']->get('/eloquent/join', function (DataTables $datatables) {
+            $builder = Post::query()
+                           ->join('users', 'users.id', '=', 'posts.user_id')
+                           ->select('users.name', 'users.email', 'posts.title');
+
+            return $datatables->eloquent($builder)->toJson();
         });
     }
 }

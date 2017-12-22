@@ -3,10 +3,11 @@
 namespace Yajra\DataTables;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Yajra\DataTables\Exceptions\Exception;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class EloquentDataTable extends QueryDataTable
 {
@@ -14,6 +15,17 @@ class EloquentDataTable extends QueryDataTable
      * @var \Illuminate\Database\Eloquent\Builder
      */
     protected $query;
+
+    /**
+     * Can the DataTable engine be created with these parameters.
+     *
+     * @param mixed $source
+     * @return bool
+     */
+    public static function canCreate($source)
+    {
+        return $source instanceof Builder || $source instanceof Relation;
+    }
 
     /**
      * EloquentEngine constructor.
@@ -26,6 +38,28 @@ class EloquentDataTable extends QueryDataTable
         parent::__construct($builder->getQuery());
 
         $this->query = $builder;
+    }
+
+    /**
+     * Add columns in collection.
+     *
+     * @param  array  $names
+     * @param  bool|int  $order
+     * @return $this
+     */
+    public function addColumns(array $names, $order = false)
+    {
+        foreach ($names as $name => $attribute) {
+            if (is_int($name)) {
+                $name = $attribute;
+            }
+
+            $this->addColumn($name, function ($model) use ($attribute) {
+                return $model->getAttribute($attribute);
+            }, is_int($order) ? $order++ : $order);
+        }
+
+        return $this;
     }
 
     /**
@@ -52,7 +86,7 @@ class EloquentDataTable extends QueryDataTable
         $column   = array_pop($parts);
         $relation = implode('.', $parts);
 
-        if (!$relation || $relation === $this->query->getModel()->getTable()) {
+        if ($this->isNotEagerLoaded($relation)) {
             return parent::compileQuerySearch($query, $columnName, $keyword, $boolean);
         }
 
@@ -73,11 +107,24 @@ class EloquentDataTable extends QueryDataTable
         $columnName = array_pop($parts);
         $relation   = implode('.', $parts);
 
-        if (!$relation || $relation === $this->query->getModel()->getTable()) {
-            return $columnName;
+        if ($this->isNotEagerLoaded($relation)) {
+            return $column;
         }
 
         return $this->joinEagerLoadedColumn($relation, $columnName);
+    }
+
+    /**
+     * Check if a relation was not used on eager loading.
+     *
+     * @param  string $relation
+     * @return bool
+     */
+    protected function isNotEagerLoaded($relation)
+    {
+        return ! $relation
+            || ! in_array($relation, array_keys($this->query->getEagerLoads()))
+            || $relation === $this->query->getModel()->getTable();
     }
 
     /**
@@ -149,7 +196,7 @@ class EloquentDataTable extends QueryDataTable
             $joins[] = $join->table;
         }
 
-        if (!in_array($table, $joins)) {
+        if (! in_array($table, $joins)) {
             $this->getBaseQueryBuilder()->join($table, $foreign, '=', $other, $type);
         }
     }

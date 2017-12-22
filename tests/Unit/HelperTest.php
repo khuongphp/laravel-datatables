@@ -2,8 +2,8 @@
 
 namespace Yajra\DataTables\Tests\Unit;
 
-use Carbon\Carbon;
 use stdClass;
+use Carbon\Carbon;
 use Yajra\DataTables\Tests\TestCase;
 use Yajra\DataTables\Utilities\Helper;
 
@@ -124,7 +124,7 @@ class HelperTest extends TestCase
 
     public function test_get_mixed_value()
     {
-        $data              = [
+        $data = [
             'id'         => 1,
             'name'       => 'John',
             'created_at' => '1234',
@@ -182,9 +182,9 @@ class HelperTest extends TestCase
 
         $result   = Helper::convertToArray($row);
         $expected = [
-            'id'     => 1,
-            'name'   => 'John',
-            'posts'  => [
+            'id'    => 1,
+            'name'  => 'John',
+            'posts' => [
                 'id'    => 1,
                 'title' => 'Demo',
             ],
@@ -197,7 +197,7 @@ class HelperTest extends TestCase
 
     public function test_transform()
     {
-        $data     = [
+        $data = [
             [
                 'id'         => 1,
                 'author'     => 'John',
@@ -246,5 +246,23 @@ class HelperTest extends TestCase
         $keyword = 'bar';
         $result  = Helper::replacePatternWithKeyword($subject, $keyword, '$1');
         $this->assertEquals(['foo in ?', ['bar']], $result);
+    }
+
+    public function test_wildcard_like_string()
+    {
+        $str = 'keyword';
+
+        $keyword = Helper::wildcardLikeString($str);
+
+        $this->assertEquals('%k%e%y%w%o%r%d%', $keyword);
+    }
+
+    public function test_wildcard_string()
+    {
+        $str = 'Keyword';
+
+        $keyword = Helper::wildcardString($str, '.*', true);
+
+        $this->assertEquals('.*k.*e.*y.*w.*o.*r.*d.*', $keyword);
     }
 }

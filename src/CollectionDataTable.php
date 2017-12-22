@@ -2,26 +2,52 @@
 
 namespace Yajra\DataTables;
 
-use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
+use Illuminate\Contracts\Support\Arrayable;
 
 class CollectionDataTable extends DataTableAbstract
 {
     /**
-     * Collection object
+     * Collection object.
      *
      * @var \Illuminate\Support\Collection
      */
     public $collection;
 
     /**
-     * Collection object
+     * Collection object.
      *
      * @var \Illuminate\Support\Collection
      */
     public $original;
+
+    /**
+     * Can the DataTable engine be created with these parameters.
+     *
+     * @param mixed $source
+     * @return bool
+     */
+    public static function canCreate($source)
+    {
+        return is_array($source) || $source instanceof Collection;
+    }
+
+    /**
+     * Factory method, create and return an instance for the DataTable engine.
+     *
+     * @param array|\Illuminate\Support\Collection $source
+     * @return CollectionDataTable|DataTableAbstract
+     */
+    public static function create($source)
+    {
+        if (is_array($source)) {
+            $source = new Collection($source);
+        }
+
+        return parent::create($source);
+    }
 
     /**
      * CollectionEngine constructor.
@@ -30,15 +56,15 @@ class CollectionDataTable extends DataTableAbstract
      */
     public function __construct(Collection $collection)
     {
-        $this->request    = resolve('datatables.request');
-        $this->config     = resolve('datatables.config');
+        $this->request    = app('datatables.request');
+        $this->config     = app('datatables.config');
         $this->collection = $collection;
         $this->original   = $collection;
         $this->columns    = array_keys($this->serialize($collection->first()));
     }
 
     /**
-     * Serialize collection
+     * Serialize collection.
      *
      * @param  mixed $collection
      * @return mixed|null
@@ -49,22 +75,9 @@ class CollectionDataTable extends DataTableAbstract
     }
 
     /**
-     * Append debug parameters on output.
-     *
-     * @param  array $output
-     * @return array
-     */
-    public function showDebugger(array $output)
-    {
-        $output["input"] = $this->request->all();
-
-        return $output;
-    }
-
-    /**
      * Count results.
      *
-     * @return integer
+     * @return int
      */
     public function count()
     {
@@ -78,7 +91,7 @@ class CollectionDataTable extends DataTableAbstract
      */
     public function columnSearch()
     {
-        $columns = $this->request->get('columns');
+        $columns = $this->request->get('columns', []);
         for ($i = 0, $c = count($columns); $i < $c; $i++) {
             if ($this->request->isColumnSearchable($i)) {
                 $this->isFilterApplied = true;
@@ -158,7 +171,7 @@ class CollectionDataTable extends DataTableAbstract
     /**
      * Count total items.
      *
-     * @return integer
+     * @return int
      */
     public function totalCount()
     {
@@ -209,9 +222,13 @@ class CollectionDataTable extends DataTableAbstract
             $data = $this->serialize($row);
             foreach ($this->request->searchableColumnIndex() as $index) {
                 $column = $this->getColumnName($index);
-                $value  = Arr::get($data, $column);
-                if (!$value || is_array($value)) {
-                    continue;
+                $value = Arr::get($data, $column);
+                if (! $value || is_array($value)) {
+                    if (! is_numeric($value)) {
+                        continue;
+                    } else {
+                        $value = (string) $value;
+                    }
                 }
 
                 $value = $this->config->isCaseInsensitive() ? Str::lower($value) : $value;
@@ -230,34 +247,59 @@ class CollectionDataTable extends DataTableAbstract
     protected function defaultOrdering()
     {
         $criteria = $this->request->orderableColumns();
-        if (!empty($criteria)) {
-            $sorter = function ($a, $b) use ($criteria) {
-                foreach ($criteria as $orderable) {
-                    $column    = $this->getColumnName($orderable['column']);
-                    $direction = $orderable['direction'];
-                    if ($direction === 'desc') {
-                        $first  = $b;
-                        $second = $a;
-                    } else {
-                        $first  = $a;
-                        $second = $b;
-                    }
-                    if ($this->config->isCaseInsensitive()) {
-                        $cmp = strnatcasecmp($first[$column], $second[$column]);
-                    } else {
-                        $cmp = strnatcmp($first[$column], $second[$column]);
-                    }
-                    if ($cmp != 0) {
-                        return $cmp;
-                    }
-                }
+        if (! empty($criteria)) {
+            $sorter = $this->getSorter($criteria);
 
-                // all elements were equal
-                return 0;
-            };
+            $this->collection = $this->collection
+                ->map(function ($data) {
+                    return array_dot($data);
+                })
+                ->sort($sorter)
+                ->map(function ($data) {
+                    foreach ($data as $key => $value) {
+                        unset($data[$key]);
+                        array_set($data, $key, $value);
+                    }
 
-            $this->collection = $this->collection->sort($sorter);
+                    return $data;
+                });
         }
+    }
+
+    /**
+     * Get array sorter closure.
+     *
+     * @param array $criteria
+     * @return \Closure
+     */
+    protected function getSorter(array $criteria)
+    {
+        $sorter = function ($a, $b) use ($criteria) {
+            foreach ($criteria as $orderable) {
+                $column    = $this->getColumnName($orderable['column']);
+                $direction = $orderable['direction'];
+                if ($direction === 'desc') {
+                    $first  = $b;
+                    $second = $a;
+                } else {
+                    $first  = $a;
+                    $second = $b;
+                }
+                if ($this->config->isCaseInsensitive()) {
+                    $cmp = strnatcasecmp($first[$column], $second[$column]);
+                } else {
+                    $cmp = strnatcmp($first[$column], $second[$column]);
+                }
+                if ($cmp != 0) {
+                    return $cmp;
+                }
+            }
+
+            // all elements were equal
+            return 0;
+        };
+
+        return $sorter;
     }
 
     /**

@@ -23,6 +23,20 @@ use Yajra\Datatables\Request;
 class QueryBuilderEngine extends BaseEngine
 {
     /**
+     * Filtered query results.
+     *
+     * @var mixed
+     */
+    protected $results;
+
+    /**
+     * Query callback for custom pagination using limit without offset.
+     *
+     * @var callable
+     */
+    protected $limitCallback;
+
+    /**
      * @param \Illuminate\Database\Query\Builder $builder
      * @param \Yajra\Datatables\Request $request
      */
@@ -609,6 +623,7 @@ class QueryBuilderEngine extends BaseEngine
             $sql = ! $this->isCaseInsensitive() ? 'REGEXP_LIKE( ' . $column . ' , ? )' : 'REGEXP_LIKE( LOWER(' . $column . ') , ?, \'i\' )';
             $this->query->whereRaw($sql, [$keyword]);
         } elseif ($this->database == 'pgsql') {
+            $column = $this->castColumn($column);
             $sql = ! $this->isCaseInsensitive() ? $column . ' ~ ?' : $column . ' ~* ? ';
             $this->query->whereRaw($sql, [$keyword]);
         } else {
@@ -714,14 +729,33 @@ class QueryBuilderEngine extends BaseEngine
     }
 
     /**
+     * Paginate dataTable using limit without offset
+     * with additional where clause via callback.
+     *
+     * @param callable $callback
+     * @return $this
+     */
+    public function limit(callable $callback)
+    {
+        $this->limitCallback = $callback;
+
+        return $this;
+    }
+
+    /**
      * Perform pagination
      *
      * @return void
      */
     public function paging()
     {
-        $this->query->skip($this->request->input('start'))
-                    ->take((int) $this->request->input('length') > 0 ? $this->request->input('length') : 10);
+        $limit = (int) $this->request->input('length') > 0 ? $this->request->input('length') : 10;
+        if (is_callable($this->limitCallback)) {
+            $this->query->limit($limit);
+            call_user_func_array($this->limitCallback, [$this->query]);
+        } else {
+            $this->query->skip($this->request->input('start'))->take($limit);
+        }
     }
 
     /**
@@ -731,7 +765,7 @@ class QueryBuilderEngine extends BaseEngine
      */
     public function results()
     {
-        return $this->query->get();
+        return $this->results ?: $this->results = $this->query->get();
     }
 
     /**
